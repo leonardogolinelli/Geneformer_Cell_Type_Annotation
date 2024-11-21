@@ -9,6 +9,9 @@ import json
 import glob
 import numpy as np
 import scanpy as sc
+import scipy.sparse as sp
+from sklearn.model_selection import train_test_split
+
 
 def download_model_and_dictionaries(repo_id, model_name, snapshot_dir, dict_base_url, dict_files):
     """
@@ -86,7 +89,7 @@ def plot_confusion(conf_matrix, save_path=None):
     plt.title("Normalized Confusion Matrix with Observation Counts", fontsize=16)
 
     # Rotate x-axis labels by 45 degrees
-    plt.xticks(rotation=45)
+    #plt.xticks(rotation=45)
 
     # Adjust layout
     plt.tight_layout()
@@ -303,3 +306,290 @@ def compute_umap_random_subset(adata, plot_dir, subset_size=3000):
         print(f"UMAP plot saved at: {umap_plot_path}")
     else:
         raise FileNotFoundError(f"UMAP plot was not generated as expected at: {umap_plot_file}")
+
+
+
+def prepare_adata(expressions, cell_types, gene_names, data_dir, output_file="adata.h5ad"):
+    """
+    Prepares and saves an AnnData object.
+
+    Parameters:
+    - expressions : np.ndarray or scipy.sparse matrix
+        Matrix of gene expression values.
+    - cell_types : list or np.ndarray
+        List of cell type labels for each observation (cell).
+    - gene_names : list or np.ndarray
+        List of gene names corresponding to columns in the expressions matrix.
+    - data_dir : str
+        Directory to save the AnnData file.
+    - output_file : str (optional, default="adata.h5ad")
+        Filename for the saved AnnData object.
+
+    Returns:
+    - adata : AnnData
+        The prepared AnnData object.
+    """
+    # Create AnnData object
+    adata = sc.AnnData(X=expressions)
+    adata.obs["cell_types"] = cell_types
+    adata.var_names = gene_names
+    adata.var["ensembl_id"] = gene_names
+    adata.obs["n_counts"] = adata.X.sum(1)
+    adata.obs["cell_id"] = adata.obs_names.values
+
+    # Sparsify data
+    if not sp.issparse(adata.X):
+        adata.X = sp.csr_matrix(adata.X)
+
+    # Save AnnData
+    os.makedirs(data_dir, exist_ok=True)
+    adata_path = os.path.join(data_dir, output_file)
+    adata.write_h5ad(adata_path)
+
+    print(f"AnnData saved at: {adata_path}")
+    return adata
+
+
+
+
+def split_data(cell_types, eval_test_size=0.2, random_state=42):
+    """
+    Splits data indices into train, validation, and test sets.
+
+    Parameters:
+    - cell_types : np.ndarray or list
+        Array of cell type labels for stratification.
+    - test_size : float (default=0.2)
+        Proportion of data to be held out for the test set.
+    - eval_size : float (default=0.1)
+        Proportion of the remaining data (after test split) to be held out for evaluation.
+    - random_state : int (default=42)
+        Random seed for reproducibility.
+
+    Returns:
+    - train_indices : np.ndarray
+        Indices for the training set.
+    - eval_indices : np.ndarray
+        Indices for the evaluation set.
+    - test_indices : np.ndarray
+        Indices for the test set.
+    """
+    # First split: train and temporary (test + eval)
+    train_indices, temp_indices = train_test_split(
+        np.arange(len(cell_types)),
+        test_size=eval_test_size,
+        random_state=random_state,
+        stratify=cell_types
+    )
+
+    # Get cell types for temporary split
+    cell_types_temp = cell_types[temp_indices]
+
+    # Second split: eval and test
+    eval_indices, test_indices = train_test_split(
+        temp_indices,
+        test_size=0.5,  # Half of the temporary split goes to test
+        random_state=random_state,
+        stratify=cell_types_temp
+    )
+
+    return train_indices, eval_indices, test_indices
+
+
+import os
+import pickle
+
+def prepare_split_dicts(adata, train_indices, eval_indices, test_indices, results_dir):
+    """
+    Prepares data split dictionaries for dataset preparation and fine-tuning steps.
+
+    Parameters:
+    - adata : AnnData
+        Annotated data object containing cell IDs in `adata.obs["cell_id"]`.
+    - train_indices : list or np.ndarray
+        Indices for the training set.
+    - eval_indices : list or np.ndarray
+        Indices for the evaluation set.
+    - test_indices : list or np.ndarray
+        Indices for the test set.
+    - results_dir : str
+        Directory to save the split dictionaries.
+
+    Returns:
+    - train_test_id_split_dict : dict
+        Dictionary for dataset preparation with train and test splits.
+    - train_eval_id_split_dict : dict
+        Dictionary for fine-tuning with train and eval splits.
+    """
+    # Prepare train, eval, and test IDs
+    train_ids = adata.obs["cell_id"].iloc[train_indices].tolist()
+    eval_ids = adata.obs["cell_id"].iloc[eval_indices].tolist()
+    test_ids = adata.obs["cell_id"].iloc[test_indices].tolist()
+
+    # Dataset preparation dictionary
+    train_test_id_split_dict = {
+        "attr_key": "cell_id",
+        "train": train_ids + eval_ids,
+        "test": test_ids,
+    }
+    train_test_split_path = os.path.join(results_dir, "train_test_id_split_dict.pkl")
+    with open(train_test_split_path, "wb") as f:
+        pickle.dump(train_test_id_split_dict, f)
+
+    # Fine-tuning dictionary
+    train_eval_id_split_dict = {
+        "attr_key": "cell_id",
+        "train": train_ids,
+        "eval": eval_ids,
+    }
+    train_eval_split_path = os.path.join(results_dir, "train_eval_id_split_dict.pkl")
+    with open(train_eval_split_path, "wb") as f:
+        pickle.dump(train_eval_id_split_dict, f)
+
+    print(f"Train-test split dictionary saved at: {train_test_split_path}")
+    print(f"Train-eval split dictionary saved at: {train_eval_split_path}")
+
+    return train_test_id_split_dict, train_eval_id_split_dict
+
+
+def prepare_split_dicts(adata, train_indices, eval_indices, test_indices, results_dir):
+    """
+    Prepares data split dictionaries for dataset preparation and fine-tuning steps.
+
+    Parameters:
+    - adata : AnnData
+        Annotated data object containing cell IDs in `adata.obs["cell_id"]`.
+    - train_indices : list or np.ndarray
+        Indices for the training set.
+    - eval_indices : list or np.ndarray
+        Indices for the evaluation set.
+    - test_indices : list or np.ndarray
+        Indices for the test set.
+    - results_dir : str
+        Directory to save the split dictionaries.
+
+    Returns:
+    - train_test_id_split_dict : dict
+        Dictionary for dataset preparation with train and test splits.
+    - train_eval_id_split_dict : dict
+        Dictionary for fine-tuning with train and eval splits.
+    """
+    # Prepare train, eval, and test IDs
+    train_ids = adata.obs["cell_id"].iloc[train_indices].tolist()
+    eval_ids = adata.obs["cell_id"].iloc[eval_indices].tolist()
+    test_ids = adata.obs["cell_id"].iloc[test_indices].tolist()
+
+    # Dataset preparation dictionary
+    train_test_id_split_dict = {
+        "attr_key": "cell_id",
+        "train": train_ids + eval_ids,
+        "test": test_ids,
+    }
+    train_test_split_path = os.path.join(results_dir, "train_test_id_split_dict.pkl")
+    with open(train_test_split_path, "wb") as f:
+        pickle.dump(train_test_id_split_dict, f)
+
+    # Fine-tuning dictionary
+    train_eval_id_split_dict = {
+        "attr_key": "cell_id",
+        "train": train_ids,
+        "eval": eval_ids,
+    }
+    train_eval_split_path = os.path.join(results_dir, "train_eval_id_split_dict.pkl")
+    with open(train_eval_split_path, "wb") as f:
+        pickle.dump(train_eval_id_split_dict, f)
+
+    print(f"Train-test split dictionary saved at: {train_test_split_path}")
+    print(f"Train-eval split dictionary saved at: {train_eval_split_path}")
+
+    return train_test_id_split_dict, train_eval_id_split_dict
+
+
+from sklearn.model_selection import train_test_split
+import os
+
+def filter_and_subsample_data(expressions, cell_types, fraction_threshold, subsample_fraction, plot_dir):
+    """
+    Filters and subsamples data based on cell type fraction and subsampling fraction.
+
+    Parameters:
+    - expressions : np.ndarray
+        Expression data matrix (e.g., gene expression counts).
+    - cell_types : np.ndarray or pd.Series
+        Array or Series of cell type labels corresponding to each cell.
+    - fraction_threshold : float
+        Minimum fraction of cells for a cell type to be included in the dataset.
+    - subsample_fraction : float
+        Fraction of cells to keep after filtering.
+    - plot_function : function
+        Function to plot cell type distribution (e.g., `plot_cell_type_distribution`).
+    - plot_dir : str
+        Directory to save the distribution plots.
+
+    Returns:
+    - filtered_expressions : np.ndarray
+        Filtered and subsampled expression data.
+    - filtered_cell_types : np.ndarray
+        Corresponding cell types after filtering and subsampling.
+    """
+
+    # Plot initial cell type distribution
+    plot_before_filter = os.path.join(plot_dir, "before_filtering.png")
+    plot_cell_type_distribution(cell_types, save_path=plot_before_filter)
+
+    # Filter cell types by fraction threshold
+    high_fraction_indices = get_high_fraction_celltype_indices(cell_types, fraction_threshold)
+    filtered_expressions = expressions[high_fraction_indices]
+    filtered_cell_types = cell_types[high_fraction_indices]
+
+    # Subsample data for efficient processing
+    _, subsample_indices = train_test_split(
+        np.arange(len(filtered_cell_types)),
+        test_size=subsample_fraction,
+        stratify=filtered_cell_types,
+        random_state=42
+    )
+    filtered_expressions = filtered_expressions[subsample_indices, :]
+    filtered_cell_types = filtered_cell_types[subsample_indices]
+
+    # Plot cell type distribution after filtering
+    plot_after_filter = os.path.join(plot_dir, "after_filtering.png")
+    plot_cell_type_distribution(filtered_cell_types, save_path=plot_after_filter)
+
+    return filtered_expressions, filtered_cell_types
+
+
+
+import os
+import numpy as np
+
+def load_cell_data(data_dir, file_name="cells.npy"):
+    """
+    Loads cell data from a .npy file and extracts expressions, gene names, and cell types.
+
+    Parameters:
+    - data_dir : str
+        Directory containing the .npy file.
+    - file_name : str, optional
+        Name of the .npy file. Default is "cells.npy".
+
+    Returns:
+    - expressions : np.ndarray
+        Dense matrix of expression data (e.g., UMI counts).
+    - gene_names : np.ndarray
+        Array of gene identifiers.
+    - cell_types : np.ndarray
+        Array of cell type labels corresponding to each cell.
+    """
+    # Construct full file path
+    cell_file = os.path.join(data_dir, file_name)
+
+    # Load cell data from .npy file
+    cells = np.load(cell_file, allow_pickle=True).ravel()[0]
+
+    # Extract components
+    expressions = cells["UMI"].toarray()
+    gene_names = cells["gene_ids"]
+    cell_types = cells["classes"]
+
+    return expressions, gene_names, cell_types

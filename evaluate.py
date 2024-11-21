@@ -74,6 +74,8 @@ print(f"Confusion matrix saved at: {confusion_matrix_plot_path}")
 predictions_file = os.path.join(test_output_dir, "test_metrics_pred_dict.pkl")
 predictions_plot_path = os.path.join(PLOT_DIR, "predictions_plot.png")
 
+# Basically the heatmap of predictions, similar to the confusion matrix, but with
+# granularity at the cell level
 cc.plot_predictions(
     predictions_file=predictions_file,
     id_class_dict_file=id_class_dict_path,
@@ -103,9 +105,7 @@ embex = EmbExtractor(
     nproc=10,  # Number of processes
 )
 
-# Clear memory before embedding extraction
-torch.cuda.empty_cache()
-gc.collect()
+
 
 # Extract embeddings
 embs_df, embs_tensor = embex.extract_embs(

@@ -3,9 +3,7 @@ import datetime
 import pickle
 import pandas as pd
 from geneformer import EmbExtractor
-from utils import plot_confusion, get_checkpoint_with_lowest_loss  # Ensure these functions are correctly defined
-import torch
-import gc
+from utils import get_checkpoint_with_lowest_loss  # Ensure these functions are correctly defined
 
 # Define the base directory
 BASE_DIR = os.path.abspath("outputs")  # Base directory for outputs

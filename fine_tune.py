@@ -39,13 +39,10 @@ cc = Classifier(
 
 # Load relevant dictionaries
 
+# Load the dictionary for dataset preparation (train+eval vs test)..
 split_dict_path = os.path.join(RESULTS_DIR, "train_test_id_split_dict.pkl")
 with open(split_dict_path, "rb") as f:
     train_test_id_split_dict = pickle.load(f)
-
-split_dict_path = os.path.join(RESULTS_DIR, "train_eval_id_split_dict.pkl")
-with open(split_dict_path, "rb") as f:
-    train_eval_id_split_dict = pickle.load(f)
 
 # Prepare data for training and evaluation
 cc.prepare_data(
@@ -54,6 +51,11 @@ cc.prepare_data(
     output_prefix="cell_classifier",
     split_id_dict=train_test_id_split_dict,
 )
+
+# Load the dictionary for fine tuning (train vs eval)
+split_dict_path = os.path.join(RESULTS_DIR, "train_eval_id_split_dict.pkl")
+with open(split_dict_path, "rb") as f:
+    train_eval_id_split_dict = pickle.load(f)
 
 # Load the id_class_dict generated during data preparation
 id_class_dict_path = os.path.join(RESULTS_DIR, "cell_classifier_id_class_dict.pkl")
