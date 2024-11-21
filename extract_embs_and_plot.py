@@ -26,6 +26,7 @@ if not os.path.exists(id_class_dict_path):
 with open(id_class_dict_path, "rb") as f:
     id_class_dict = pickle.load(f)
 print("Loaded id_class_dict:", id_class_dict)
+print(id_class_dict)
 
 # Obtain the best checkpoint path programmatically
 validation_dir = os.path.join(RESULTS_DIR, "validation")
@@ -61,7 +62,7 @@ embs_df, embs_tensor = embex.extract_embs(
 )
 print(f"Embeddings saved at: {EMBEDDING_DIR}")
 
-# Plot UMAP
+# Plot embeddings UMAP
 umap_plot_path = os.path.join(PLOT_DIR, "embeddings_umap")
 embex.plot_embs(
     embs=embs_df,

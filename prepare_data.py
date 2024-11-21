@@ -6,12 +6,10 @@ from geneformer import TranscriptomeTokenizer
 import scipy.sparse as sp
 import pickle
 from utils import (
-    plot_confusion,
     plot_cell_type_distribution,
     get_high_fraction_celltype_indices,
     download_model_and_dictionaries,
     calculate_and_plot_split_distributions,
-    get_checkpoint_with_lowest_loss,
     compute_umap_random_subset
 )
 
@@ -58,7 +56,7 @@ gene_names = cells["gene_ids"]
 cell_types = cells["classes"]
 
 # Optional chunk for data subsampling \ filtering
-# Plot initial cell type distribution
+"""# Plot initial cell type distribution
 plot_distr_1 = os.path.join(PLOT_DIR, "full_distribution.png")
 plot_cell_type_distribution(cell_types, save_path=plot_distr_1)
 
@@ -76,7 +74,7 @@ cell_types = cell_types[subsample_indices]
 
 # Plot subsampled cell type distribution
 plot_distr_2 = os.path.join(PLOT_DIR, "filtered_distribution.png")
-plot_cell_type_distribution(cell_types, save_path=plot_distr_2)
+plot_cell_type_distribution(cell_types, save_path=plot_distr_2)"""
 
 # Create AnnData object
 adata = sc.AnnData(X=expressions)

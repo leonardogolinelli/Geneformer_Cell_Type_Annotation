@@ -2,7 +2,6 @@ import os
 import datetime
 import pickle
 from geneformer import Classifier
-from utils import get_checkpoint_with_lowest_loss
 
 # Inputs
 MODEL_NAME = "gf-6L-30M-i2048"

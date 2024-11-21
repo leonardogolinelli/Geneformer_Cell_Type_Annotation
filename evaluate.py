@@ -127,19 +127,3 @@ embex.plot_embs(
     max_ncells_to_plot=2000,
 )
 print(f"UMAP plot saved at: {umap_plot_path}")
-
-# Heatmap Plot
-heatmap_plot_path = os.path.join(PLOT_DIR, "embeddings_heatmap")
-embex.plot_embs(
-    embs=embs_df,
-    plot_style="heatmap",
-    output_directory=PLOT_DIR,
-    output_prefix="embeddings_heatmap",
-    max_ncells_to_plot=None
-)
-print(f"Heatmap plot saved at: {heatmap_plot_path}")
-
-# Rename the outputs directory
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-os.rename(BASE_DIR, f"{BASE_DIR}_{timestamp}")
-print(f"Outputs directory renamed to: {BASE_DIR}_{timestamp}")
