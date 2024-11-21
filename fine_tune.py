@@ -4,8 +4,8 @@ import pickle
 from geneformer import Classifier
 from utils import get_checkpoint_with_lowest_loss
 
-# Define the base directory
-MODEL_NAME = "gf-12L-30M-i2048"
+# Inputs
+MODEL_NAME = "gf-6L-30M-i2048"
 BASE_DIR = os.path.abspath("outputs")  # Base directory for outputs
 RESULTS_DIR = os.path.join(BASE_DIR, "files")
 MODEL_DIR = os.path.abspath(f"pretrained_models/{MODEL_NAME}")
@@ -13,8 +13,9 @@ TOKENIZED_DATA_DIR = os.path.join(BASE_DIR, "tokenized_data")
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 id_class_dict_path = os.path.join(RESULTS_DIR, "cell_classifier_id_class_dict.pkl")
 validation_dir = os.path.join(RESULTS_DIR, "validation")
-test_output_dir = os.path.join(RESULTS_DIR, "test_evaluation")
+os.makedirs(validation_dir, exist_ok=True)
 
+# Hyperparameters
 training_args = {
     "num_train_epochs": 1,
     "learning_rate": 0.000804,
@@ -24,7 +25,6 @@ training_args = {
     "per_device_train_batch_size": 12,
     "seed": 73,
 }
-
 
 # Initialize the Classifier
 cc = Classifier(
@@ -38,8 +38,7 @@ cc = Classifier(
     nproc=20,
 )
 
-# Step 6: Validate Model
-os.makedirs(validation_dir, exist_ok=True)
+# Load relevant dictionaries
 
 split_dict_path = os.path.join(RESULTS_DIR, "train_test_id_split_dict.pkl")
 with open(split_dict_path, "rb") as f:
@@ -68,16 +67,10 @@ all_metrics = cc.validate(
     prepared_input_data_file=os.path.join(RESULTS_DIR, "cell_classifier_labeled_train.dataset"),
     id_class_dict_file=id_class_dict_path,  # Use the id_class_dict from prepare_data
     output_directory=validation_dir,
-    output_prefix="validated_model",
+    output_prefix="fine_tuned_model",
     split_id_dict=train_eval_id_split_dict,
     n_hyperopt_trials=0,
 )
 
 print("Validation complete. Metrics:", all_metrics)
 
-# Step 7: Evaluate the Model
-best_checkpoint_dir = get_checkpoint_with_lowest_loss(validation_dir, datetime.datetime.now().strftime("%y%m%d"))
-best_checkpoint_path = os.path.abspath(best_checkpoint_dir)
-print("Best checkpoint path:", best_checkpoint_path)
-
-os.makedirs(test_output_dir, exist_ok=True)

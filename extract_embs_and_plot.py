@@ -51,10 +51,6 @@ embex = EmbExtractor(
     nproc=10,  # Number of processes
 )
 
-# Clear memory before embedding extraction
-torch.cuda.empty_cache()
-gc.collect()
-
 # Extract embeddings
 embs_df, embs_tensor = embex.extract_embs(
     model_directory=best_checkpoint_path,

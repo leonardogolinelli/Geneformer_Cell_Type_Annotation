@@ -15,7 +15,8 @@ PLOT_DIR = os.path.join(BASE_DIR, "plots")  # Directory for plots
 EMBEDDING_DIR = os.path.join(BASE_DIR, "embeddings")  # Directory for embeddings
 TOKENIZED_DATA_DIR = os.path.join(BASE_DIR, "tokenized_data")  # Directory for tokenized data
 RESULTS_DIR = os.path.join(BASE_DIR, "files")  # Directory for files
-test_output_dir = os.path.join(RESULTS_DIR, "test_evaluation")  # Test evaluation output directory
+test_output_dir = os.path.join(RESULTS_DIR, "test_evaluation")
+os.makedirs(test_output_dir, exist_ok=True)
 
 # Load `id_class_dict` from the previously prepared dictionary
 id_class_dict_path = os.path.join(RESULTS_DIR, "cell_classifier_id_class_dict.pkl")
@@ -25,10 +26,10 @@ print("Loaded id_class_dict:", id_class_dict)
 
 # Obtain the best checkpoint path programmatically
 validation_dir = os.path.join(RESULTS_DIR, "validation")
-current_date = datetime.datetime.now().strftime("%y%m%d")
-best_checkpoint_dir = get_checkpoint_with_lowest_loss(validation_dir, current_date)
+best_checkpoint_dir = get_checkpoint_with_lowest_loss(validation_dir, datetime.datetime.now().strftime("%y%m%d"))
 best_checkpoint_path = os.path.abspath(best_checkpoint_dir)
 print("Best checkpoint path:", best_checkpoint_path)
+
 
 # Initialize the Classifier instance
 cc = Classifier(
@@ -48,7 +49,7 @@ test_metrics = cc.evaluate_saved_model(
     id_class_dict_file=id_class_dict_path,
     test_data_file=os.path.join(RESULTS_DIR, "cell_classifier_labeled_test.dataset"),
     output_directory=test_output_dir,
-    output_prefix="eval_loss",
+    output_prefix="test_metrics",
     predict=True,
 )
 
@@ -70,7 +71,7 @@ plot_confusion(test_metrics["conf_matrix"], save_path=confusion_matrix_plot_path
 print(f"Confusion matrix saved at: {confusion_matrix_plot_path}")
 
 # Visualize Predictions
-predictions_file = os.path.join(test_output_dir, "test_model_pred_dict.pkl")
+predictions_file = os.path.join(test_output_dir, "test_metrics_pred_dict.pkl")
 predictions_plot_path = os.path.join(PLOT_DIR, "predictions_plot.png")
 
 cc.plot_predictions(

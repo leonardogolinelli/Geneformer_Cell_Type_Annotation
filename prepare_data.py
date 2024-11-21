@@ -1,13 +1,10 @@
 import os
-import datetime
 import numpy as np
 import scanpy as sc
 from sklearn.model_selection import train_test_split
-from geneformer import TranscriptomeTokenizer, Classifier, EmbExtractor
+from geneformer import TranscriptomeTokenizer
 import scipy.sparse as sp
 import pickle
-import pandas as pd
-
 from utils import (
     plot_confusion,
     plot_cell_type_distribution,
@@ -18,9 +15,9 @@ from utils import (
     compute_umap_random_subset
 )
 
-# Inputs for the function
+# Inputs 
 REPO_ID = "ctheodoris/Geneformer"
-MODEL_NAME = "gf-12L-30M-i2048"
+MODEL_NAME = "gf-6L-30M-i2048"
 PRETRAINED_DIR = "pretrained_models"  # Save in the current directory
 DICT_BASE_URL = "https://huggingface.co/ctheodoris/Geneformer/resolve/main/geneformer/gene_dictionaries_30m/"
 DICT_FILES = [
@@ -52,7 +49,7 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 os.makedirs(PLOT_DIR, exist_ok=True)
 os.makedirs(EMBEDDING_DIR, exist_ok=True)
 
-# Step 2: Load and preprocess data
+# Load data
 cell_file = os.path.join(DATA_DIR, "cells.npy")
 cells = np.load(cell_file, allow_pickle=True).ravel()[0]
 
@@ -60,9 +57,8 @@ expressions = cells["UMI"].toarray()
 gene_names = cells["gene_ids"]
 cell_types = cells["classes"]
 
-#OPTIONAL CHUNK OF CODE FOR FILTERING
-
-"""# Plot initial cell type distribution
+# Optional chunk for data subsampling \ filtering
+# Plot initial cell type distribution
 plot_distr_1 = os.path.join(PLOT_DIR, "full_distribution.png")
 plot_cell_type_distribution(cell_types, save_path=plot_distr_1)
 
@@ -73,14 +69,14 @@ cell_types = cell_types[high_fraction_indices]
 
 # Subsample data for efficient processing
 _, subsample_indices = train_test_split(
-    np.arange(len(cell_types)), test_size=0.1, stratify=cell_types, random_state=42
+    np.arange(len(cell_types)), test_size=0.01, stratify=cell_types, random_state=42
 )
 expressions = expressions[subsample_indices, :]
 cell_types = cell_types[subsample_indices]
 
 # Plot subsampled cell type distribution
 plot_distr_2 = os.path.join(PLOT_DIR, "filtered_distribution.png")
-plot_cell_type_distribution(cell_types, save_path=plot_distr_2)"""
+plot_cell_type_distribution(cell_types, save_path=plot_distr_2)
 
 # Create AnnData object
 adata = sc.AnnData(X=expressions)
@@ -90,6 +86,7 @@ adata.var["ensembl_id"] = gene_names
 adata.obs["n_counts"] = adata.X.sum(1)
 adata.obs["cell_id"] = adata.obs_names.values
 
+# Sparsify data
 if not sp.issparse(adata.X):
     adata.X = sp.csr_matrix(adata.X)
 
@@ -98,7 +95,7 @@ adata_path = os.path.join(DATA_DIR, "adata.h5ad")
 adata.write_h5ad(adata_path)
 compute_umap_random_subset(adata, PLOT_DIR, subset_size=3000)
 
-# Step 3: Tokenize data
+# Initialize Tokenizer
 tokenizer = TranscriptomeTokenizer(
     custom_attr_name_dict={"cell_types": "cell_types", "cell_id": "cell_id"},
     model_input_size=2048,
@@ -107,7 +104,7 @@ tokenizer = TranscriptomeTokenizer(
     token_dictionary_file=os.path.join(DICT_DIR, "token_dictionary_gc30M.pkl"),
     gene_mapping_file=os.path.join(DICT_DIR, "ensembl_mapping_dict_gc30M.pkl")
 )
-
+# Run tokenizer
 tokenizer.tokenize_data(
     data_directory=DATA_DIR,
     output_directory=TOKENIZED_DATA_DIR,
@@ -116,17 +113,19 @@ tokenizer.tokenize_data(
     use_generator=False
 )
 
-# Step 4: Train, validate, and test split
+# Train, validate, and test split
 train_indices, temp_indices = train_test_split(
-    np.arange(len(cell_types)), test_size=0.3, random_state=42, stratify=cell_types
+    np.arange(len(cell_types)), test_size=0.2, random_state=42, stratify=cell_types
 )
 cell_types_temp = cell_types[temp_indices]
 eval_indices, test_indices = train_test_split(
     temp_indices, test_size=0.5, random_state=42, stratify=cell_types_temp
 )
+
+# Plot split distributions
 calculate_and_plot_split_distributions(adata, train_indices, eval_indices, test_indices, PLOT_DIR)
 
-# Prepare train-test split dictionary
+# Prepare split dictionaries
 train_ids = adata.obs["cell_id"].iloc[train_indices].tolist()
 eval_ids = adata.obs["cell_id"].iloc[eval_indices].tolist()
 test_ids = adata.obs["cell_id"].iloc[test_indices].tolist()

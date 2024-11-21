@@ -85,8 +85,13 @@ def plot_confusion(conf_matrix, save_path=None):
     plt.ylabel("True Labels", fontsize=14)
     plt.title("Normalized Confusion Matrix with Observation Counts", fontsize=16)
 
+    # Rotate x-axis labels by 45 degrees
+    plt.xticks(rotation=45)
+
     # Adjust layout
     plt.tight_layout()
+
+    
 
     # Save the plot if a save_path is provided
     if save_path:
@@ -214,7 +219,7 @@ def get_high_fraction_celltype_indices(cell_types, threshold):
 def get_checkpoint_with_lowest_loss(validation_dir, current_date):
     # Locate all checkpoint directories
     checkpoint_dirs = glob.glob(
-        os.path.join(validation_dir, f"{current_date}_geneformer_cellClassifier_validated_model", "ksplit1", "checkpoint-*")
+        os.path.join(validation_dir, f"{current_date}_geneformer_cellClassifier_fine_tuned_model", "ksplit1", "checkpoint-*")
     )
     
     if not checkpoint_dirs:
